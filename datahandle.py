@@ -88,7 +88,7 @@ class SegDataset(Dataset):
 
         if self.transform:
             sample = self.transform(sample)
-
+        sample['slika'] = img_name
         return sample
 
 # Define few transformations for the Segmentation Dataloader
