@@ -1,3 +1,4 @@
+from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 import glob
 import os
@@ -33,7 +34,11 @@ class SegDataset(Dataset):
         self.color_dict = {'rgb': 1, 'grayscale': 0}
         assert(imagecolormode in ['rgb', 'grayscale'])
         assert(maskcolormode in ['rgb', 'grayscale'])
-
+        self.mapping = {
+            0: 0,
+            128: 1,
+            255: 2
+        }
         self.imagecolorflag = self.color_dict[imagecolormode]
         self.maskcolorflag = self.color_dict[maskcolormode]
         self.root_dir = root_dir
@@ -67,6 +72,11 @@ class SegDataset(Dataset):
                 self.mask_names = self.mask_list[int(
                     np.ceil(len(self.mask_list)*(1-self.fraction))):]
 
+    def mask_to_class(self, mask):
+        for k in self.mapping:
+            mask[mask==k] = self.mapping[k]
+        return mask
+
     def __len__(self):
         return len(self.image_names)
 
@@ -78,11 +88,14 @@ class SegDataset(Dataset):
         else:
             image = cv2.imread(img_name, self.imagecolorflag)
         msk_name = self.mask_names[idx]
-        # if self.maskcolorflag:
-        #     mask = cv2.imread(msk_name, self.maskcolorflag).transpose(2, 0, 1)
-        # else:
-        mask = cv2.imread(msk_name, self.maskcolorflag)
-        mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB).transpose(2, 0, 1)
+
+        #novo
+        mask = Image.open(msk_name)
+        mask = torch.from_numpy(np.array(mask))
+        mask = self.mask_to_class(mask)
+
+        # mask = cv2.imread(msk_name, self.maskcolorflag)
+        # mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB).transpose(2, 0, 1)
 
         sample = {'image': image, 'mask': mask}
 
@@ -128,7 +141,7 @@ class ToTensor(object):
         if len(image.shape) == 2:
             image = image.reshape((1,)+image.shape)
         return {'image': torch.from_numpy(image),
-                'mask': torch.from_numpy(mask)}
+                'mask': mask}
 
 
 class Normalize(object):
@@ -164,10 +177,14 @@ def get_dataloader_sep_folder(data_dir, imageFolder='Image', maskFolder='Mask', 
         'Train': transforms.Compose([ToTensor(), Normalize()]),
         'Test': transforms.Compose([ToTensor(), Normalize()]),
     }
-
-    image_datasets = {x: SegDataset(root_dir=os.path.join(data_dir, x),
-                                    transform=data_transforms[x], maskFolder=maskFolder, imageFolder=imageFolder)
-                      for x in ['Train', 'Test']}
+    image_datasets = {
+        x: SegDataset(root_dir=os.path.join(data_dir, x), transform=data_transforms[x], maskFolder=maskFolder,
+                      imageFolder=imageFolder)
+        for x in ['Train', 'Test']}
+    # image_datasets = {
+    #     x: SegDataset(root_dir=os.path.join(data_dir, x), transform=None, maskFolder=maskFolder,
+    #                   imageFolder=imageFolder)
+    #     for x in ['Train', 'Test']}
     dataloaders = {x: DataLoader(image_datasets[x], batch_size=batch_size,
                                  shuffle=True, num_workers=8)
                    for x in ['Train', 'Test']}

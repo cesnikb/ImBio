@@ -18,12 +18,12 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision import transforms
 
-batch_size = 6
+batch_size = 2
 
 
 def createDeepLabv3(outputchannels=1):
     model = models.segmentation.deeplabv3_resnet101(
-        pretrained=True, progress=True)
+        pretrained=False, progress=True)
     # Added a Sigmoid activation after the last convolution layer
     model.classifier = DeepLabHead(2048, outputchannels)
     # Set the model in training mode
@@ -45,7 +45,7 @@ def display_output(outputs):
     plt.show()
 
 
-def train_model(model, criterion, dataloaders, optimizer, metrics, bpath, num_epochs=5):
+def train_model(model, criterion, dataloaders, optimizer, metrics, bpath, num_epochs=3):
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_loss = 1e10
@@ -76,7 +76,7 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath, num_ep
             # Iterate over data.
             for sample in tqdm(iter(dataloaders[phase])):
                 inputs = sample['image'].to(device)
-                masks = sample['mask'].to(device, dtype= torch.long)
+                masks = sample['mask'].to(device)
                 # print(inputs.shape)
                 if inputs.shape == torch.Size([batch_size, 3, 218, 178]):
                     # zero the parameter gradients
@@ -89,24 +89,22 @@ def train_model(model, criterion, dataloaders, optimizer, metrics, bpath, num_ep
                         # print(outputs['out'].shape)
 
                         # display_output(outputs)
-                        # print(masks.squeeze(1).shape)
+                        # print(sample['slika'][0])
 
 
-                        loss = criterion(outputs['out'], masks.squeeze(1))
+                        loss = criterion(outputs['out'], masks)
                         # print(loss)
-                        # y_pred = outputs['out'].data.cpu().numpy().ravel()
-                        # print(y_pred.shape)
-                        # y_true = masks.data.cpu().numpy().ravel()
-                        # print(y_true.shape)
-                        #
-                        # for name, metric in metrics.items():
-                        #     if name == 'f1_score':
-                        #         # Use a classification threshold of 0.1
-                        #         batchsummary[f'{phase}_{name}'].append(
-                        #             metric(y_true > 0, y_pred > 0.1))
-                        #     else:
-                        #         batchsummary[f'{phase}_{name}'].append(
-                        #             metric(y_true.astype('uint8'), y_pred))
+                        y_pred = outputs['out'].data.cpu().numpy().ravel()
+                        y_true = masks.data.cpu().numpy().ravel()
+
+                        for name, metric in metrics.items():
+                            if name == 'f1_score':
+                                # Use a classification threshold of 0.1
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(y_true > 0, y_pred > 0.1))
+                            else:
+                                batchsummary[f'{phase}_{name}'].append(
+                                    metric(y_true.astype('uint8'), y_pred))
 
                         # backward + optimize only if in training phase
                         if phase == 'Train':
@@ -143,58 +141,10 @@ model = createDeepLabv3(3)
 # print_picture(model)
 # model.train()
 
-criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-data_dir= "data"
+criterion = torch.nn.MSELoss(reduction='mean')
+optimizer = torch.optim.Adam(model.parameters(), lr=0)
+data_dir= "data_test"
 metrics = {'f1_score': f1_score, 'auroc': roc_auc_score}
 dataloaders = get_dataloader_sep_folder(data_dir, imageFolder='Images', maskFolder='Masks', batch_size=batch_size)
 train_model(model, criterion, dataloaders, optimizer, metrics, "metrics", num_epochs=1)
 torch.save(model.state_dict(), os.path.join("metrics", 'weights.pt'))
-
-# print(1)
-# model.eval()
-# for i in iter(dataloaders["Train"]):
-#     a = model(i["image"])
-#     plt.imshow(a)
-#     plt.show()
-#
-# import urllib
-# url, filename = ("https://github.com/pytorch/hub/raw/master/dog.jpg", "dog.jpg")
-# try: urllib.URLopener().retrieve(url, filename)
-# except: urllib.request.urlretrieve(url, filename)
-#
-# from PIL import Image
-# from torchvision import transforms
-# input_image = Image.open(filename)
-# preprocess = transforms.Compose([
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-# ])
-
-# model = torch.hub.load('pytorch/vision:v0.4.2', 'deeplabv3_resnet101', pretrained=True)
-
-
-# model.eval()
-# input_tensor = preprocess(input_image)
-# input_batch = input_tensor.unsqueeze(0)
-# if torch.cuda.is_available():
-#     input_batch = input_batch.to('cuda')
-#     model.to('cuda')
-# with torch.no_grad():
-#     output = model(input_batch)['out'][0]
-# output_predictions = output.argmax(0)
-#
-# palette = torch.tensor([2 ** 25 - 1, 2 ** 15 - 1, 2 ** 21 - 1])
-# colors = torch.as_tensor([i for i in range(21)])[:, None] * palette
-# colors = (colors % 255).numpy().astype("uint8")
-#
-# # plot the semantic segmentation predictions of 21 classes in each color
-# r = Image.fromarray(output_predictions.byte().cpu().numpy()).resize(input_image.size)
-# r.putpalette(colors)
-#
-# import matplotlib.pyplot as plt
-# plt.imshow(r)
-# plt.show()
-
-# train_model(model, criterion, dataloaders, optimizer, metrics, "metrics", num_epochs=3)
-# torch.save(model, os.path.join("metrics", 'weights.pt'))
