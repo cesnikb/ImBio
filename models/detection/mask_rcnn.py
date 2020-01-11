@@ -19,7 +19,7 @@ __all__ = [
 
 class MaskRCNN(FasterRCNN):
     """
-    Implements Mask R-CNN.
+    Implements Masks R-CNN.
 
     The input to the model is expected to be a list of tensors, each of shape [C, H, W], one for each
     image, and should be in 0-1 range. Different images can have different sizes.
@@ -165,7 +165,7 @@ class MaskRCNN(FasterRCNN):
                  box_fg_iou_thresh=0.5, box_bg_iou_thresh=0.5,
                  box_batch_size_per_image=512, box_positive_fraction=0.25,
                  bbox_reg_weights=None,
-                 # Mask parameters
+                 # Masks parameters
                  mask_roi_pool=None, mask_head=None, mask_predictor=None):
 
         assert isinstance(mask_roi_pool, (MultiScaleRoIAlign, type(None)))
@@ -266,7 +266,7 @@ model_urls = {
 def maskrcnn_resnet50_fpn(pretrained=False, progress=True,
                           num_classes=91, pretrained_backbone=True, **kwargs):
     """
-    Constructs a Mask R-CNN model with a ResNet-50-FPN backbone.
+    Constructs a Masks R-CNN model with a ResNet-50-FPN backbone.
 
     The input to the model is expected to be a list of tensors, each of shape ``[C, H, W]``, one for each
     image, and should be in ``0-1`` range. Different images can have different sizes.

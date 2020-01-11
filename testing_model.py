@@ -1,52 +1,48 @@
+import cv2
 import torch
 from PIL import Image
+from torch.autograd import Variable
+from torchvision.transforms import transforms
 
 import models
-from datahandle import get_dataloader_sep_folder
+from datahandle_celeb import Resize, ToTensor, Normalize
 from models.segmentation.deeplabv3 import DeepLabHead
 import matplotlib.pyplot as plt
 
-def createDeepLabv3(outputchannels=1):
+
+def createDeepLabv3(outputchannels=1,pretrained=True):
     model = models.segmentation.deeplabv3_resnet101(
-        pretrained=True, progress=True)
-    # Added a Sigmoid activation after the last convolution layer
+        pretrained=pretrained, progress=True)
     model.classifier = DeepLabHead(2048, outputchannels)
-    # Set the model in training mode
-    model.train()
     return model
 
-dataloaders = get_dataloader_sep_folder("data_test", imageFolder='Images', maskFolder='Masks', batch_size=1)
 
-model = createDeepLabv3(3)
-model.load_state_dict(torch.load("metrics/weights.pt"))
-model.eval()
-
-for i in iter(dataloaders["Train"]):
-    input_tensor = i["image"][0]
-    # print(input_tensor.shape)
-    # input_tensor_img = i["image"][0]
-
-    input_batch = input_tensor.unsqueeze(0)
-    print(input_batch.shape)
+def print_img(filename):
+    image = cv2.imread(filename, 1).transpose(2, 0, 1)
+    transform = transforms.Compose([Resize((256,256),(256,256)),ToTensor(), Normalize()])
+    a =dict()
+    a["image"] = image
+    a["mask"] = image
+    transformed_pict = transform(a)
+    input_batch = transformed_pict["image"].unsqueeze(0)
     if torch.cuda.is_available():
         input_batch = input_batch.to('cuda')
         model.to('cuda')
     with torch.no_grad():
         output = model(input_batch)
         output = output['out'][0]
-        print(output.shape)
+    t = Variable(output)  # threshold
+    out = (0.5 > t).float() * 1
+    out = out[0]
+    output_numpy = out.byte().cpu().numpy()
 
-    output_predictions = output.argmax(0)
-
-    print(output_predictions.shape)
-    r = Image.fromarray(output_predictions.byte().cpu().numpy())
-    # r2 = Image.fromarray(input_tensor_img.byte().cpu().numpy())
-    # criterion = torch.nn.MSELoss(reduction='mean')
-    # print(criterion(i["image"].to("cuda:0"),input_batch.to("cuda:0")))
-    import matplotlib.pyplot as plt
-    print(output_predictions.byte().cpu().numpy().shape)
-    plt.imshow(r)
-    plt.text(35,-20,i['slika'][0])
+    ra = Image.fromarray(output_numpy)
+    plt.imshow(ra)
     plt.show()
 
 
+model = createDeepLabv3(1,False)
+model.load_state_dict(torch.load("metrics/weights_notpretrained.pt"))
+model.eval()
+
+print_img('bojan.jpg')

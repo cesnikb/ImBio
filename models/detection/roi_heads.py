@@ -332,7 +332,7 @@ class RoIHeads(torch.nn.Module):
                  score_thresh,
                  nms_thresh,
                  detections_per_img,
-                 # Mask
+                 # Masks
                  mask_roi_pool=None,
                  mask_head=None,
                  mask_predictor=None,

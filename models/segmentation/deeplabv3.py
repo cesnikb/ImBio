@@ -11,7 +11,7 @@ __all__ = ["DeepLabV3"]
 class DeepLabV3(_SimpleSegmentationModel):
     """
     Implements DeepLabV3 model from
-    `"Rethinking Atrous Convolution for Semantic Image Segmentation"
+    `"Rethinking Atrous Convolution for Semantic Images Segmentation"
     <https://arxiv.org/abs/1706.05587>`_.
 
     Arguments:
